@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="am">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>የመጽሐፍ ቅዱስ መተግበሪያ</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <!-- Inter font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-message.bot {
+            background-color: #e0f2fe;
+        }
+        .chat-message.user {
+            background-color: #fef08a;
+        }
+        .message-container {
+            max-width: 80%;
+        }
+        #chat-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #chat-container::-webkit-scrollbar-thumb {
+            background-color: #cbd5e1;
+            border-radius: 4px;
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+        }
+        .loading-animation {
+            border-top-color: #3b82f6;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .dots-loading::after {
+            content: '...';
+            animation: dot-animation 1s infinite steps(1, end);
+        }
+        @keyframes dot-animation {
+            0% { content: '.'; }
+            33% { content: '..'; }
+            66% { content: '...'; }
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-yellow-100 to-sky-100 min-h-screen flex items-center justify-center p-4">
+
+    <!-- Modal for name input -->
+    <div id="name-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay">
+        <div class="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md text-center">
+            <h2 class="text-3xl font-bold text-gray-800 mb-4">እንኳን ደህና መጡ!</h2>
+            <p class="text-gray-600 mb-6">ስምዎን በማስገባት ጉዞዎን ይጀምሩ</p>
+            <input type="text" id="user-name" placeholder="ስምዎን ያስገቡ..." class="w-full p-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all duration-300 placeholder-gray-400 text-gray-800 mb-4">
+            <button id="start-chat-btn" class="w-full bg-yellow-500 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-yellow-600 transition-transform transform hover:scale-105">
+                ይቀጥሉ
+            </button>
+        </div>
+    </div>
+
+    <!-- Main application container -->
+    <div id="app-container" class="bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col w-full max-w-2xl h-[90vh] hidden">
+        <!-- Top section -->
+        <div class="bg-gradient-to-r from-yellow-500 to-sky-500 text-white p-6 flex justify-between items-center shadow-lg">
+            <div class="flex items-center space-x-4">
+                <img src="https://placehold.co/100x100/FFF/000?text=መጽሐፍ+ቅዱስ" alt="መጽሐፍ ቅዱስ" class="rounded-full w-14 h-14 border-2 border-white">
+                <h1 class="text-2xl font-bold">የመጽሐፍ ቅዱስ ቻትቦት</h1>
+            </div>
+            
+            <!-- Ellipsis for menu -->
+            <div class="relative">
+                <button id="menu-btn" class="text-white p-2 rounded-full hover:bg-white hover:bg-opacity-20 transition-all focus:outline-none">
+                    <i class="fas fa-ellipsis-v text-xl"></i>
+                </button>
+                <div id="menu-dropdown" class="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 hidden">
+                    <a id="old-testament-btn" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">ብሉይ ኪዳን</a>
+                    <a id="new-testament-btn" href="#" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">አዲስ ኪዳን</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chat container -->
+        <div id="chat-container" class="flex-grow p-6 overflow-y-auto space-y-4">
+            <!-- Initial message will be added here dynamically -->
+        </div>
+
+        <!-- Input area -->
+        <div class="p-6 bg-gray-100 border-t border-gray-200 flex flex-col space-y-4">
+            <div class="flex items-center space-x-4">
+                <input type="text" id="user-input" placeholder="ጥያቄዎን ይጠይቁ..." class="flex-grow p-3 rounded-full border border-gray-300 focus:outline-none focus:ring-2 focus:ring-sky-500 transition-all duration-300 placeholder-gray-400 text-gray-800">
+                <button id="voice-btn" class="bg-sky-500 text-white p-3 rounded-full shadow-lg hover:bg-sky-600 transition-transform transform hover:scale-110 focus:outline-none">
+                    <i class="fas fa-microphone"></i>
+                </button>
+            </div>
+            <div class="flex justify-end space-x-4">
+                <!-- Photo input button -->
+                <label for="image-upload" class="cursor-pointer bg-blue-500 text-white p-3 rounded-full shadow-lg hover:bg-blue-600 transition-transform transform hover:scale-110 focus:outline-none">
+                    <i class="fas fa-camera"></i>
+                    <input type="file" id="image-upload" class="hidden" accept="image/*">
+                </label>
+                <!-- Send button -->
+                <button id="send-btn" class="bg-yellow-500 text-white p-3 rounded-full shadow-lg hover:bg-yellow-600 transition-transform transform hover:scale-110 focus:outline-none">
+                    ላክ
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hidden audio player -->
+    <audio id="audio-player" class="hidden"></audio>
+    
+    <!-- Loading and message modal -->
+    <div id="message-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-sm text-center">
+            <div class="flex justify-center mb-4">
+                <div id="modal-spinner" class="loading-animation w-12 h-12 border-4 rounded-full border-gray-200 border-t-blue-500 hidden"></div>
+                <div id="modal-content" class="text-gray-800"></div>
+            </div>
+            <button id="modal-close-btn" class="bg-blue-500 text-white font-bold py-2 px-6 rounded-full shadow-lg hover:bg-blue-600 transition-transform transform hover:scale-105 mt-4 hidden">እሺ</button>
+        </div>
+    </div>
+    
+    <!-- Dynamic Menu Modal for Books and Chapters -->
+    <div id="dynamic-menu-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay hidden">
+        <div class="bg-white rounded-3xl p-8 shadow-2xl w-full max-w-md flex flex-col items-center relative">
+            <h2 id="dynamic-menu-title" class="text-2xl font-bold text-gray-800 mb-4">መጻሕፍት</h2>
+            <div id="dynamic-menu-content" class="grid grid-cols-3 gap-4 overflow-y-auto max-h-[70vh] w-full">
+                <!-- Content will be dynamically injected here -->
+            </div>
+            <button id="dynamic-menu-back-btn" class="absolute top-4 left-4 text-gray-500 hover:text-gray-800 hidden">
+                <i class="fas fa-arrow-left text-2xl"></i>
+            </button>
+            <button id="dynamic-menu-close-btn" class="absolute top-4 right-4 text-gray-500 hover:text-gray-800">
+                <i class="fas fa-times text-2xl"></i>
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        const apiKey = "AIzaSyA8Dcb5t0emZrkjN1IGRFJHtiI-Xk0pV8I";
+        const chatContainer = document.getElementById('chat-container');
+        const userInput = document.getElementById('user-input');
+        const sendBtn = document.getElementById('send-btn');
+        const voiceBtn = document.getElementById('voice-btn');
+        const imageUpload = document.getElementById('image-upload');
+        const audioPlayer = document.getElementById('audio-player');
+        const nameModal = document.getElementById('name-modal');
+        const startChatBtn = document.getElementById('start-chat-btn');
+        const userNameInput = document.getElementById('user-name');
+        const appContainer = document.getElementById('app-container');
+        const menuBtn = document.getElementById('menu-btn');
+        const menuDropdown = document.getElementById('menu-dropdown');
+        const oldTestamentBtn = document.getElementById('old-testament-btn');
+        const newTestamentBtn = document.getElementById('new-testament-btn');
+        const messageModal = document.getElementById('message-modal');
+        const modalSpinner = document.getElementById('modal-spinner');
+        const modalContent = document.getElementById('modal-content');
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        const dynamicMenuModal = document.getElementById('dynamic-menu-modal');
+        const dynamicMenuTitle = document.getElementById('dynamic-menu-title');
+        const dynamicMenuContent = document.getElementById('dynamic-menu-content');
+        const dynamicMenuBackBtn = document.getElementById('dynamic-menu-back-btn');
+        const dynamicMenuCloseBtn = document.getElementById('dynamic-menu-close-btn');
+
+        let userName = "";
+        let loadingMessageElement = null;
+        
+        // Define Bible books and their chapter counts
+        const bibleBooks = {
+            'ብሉይ ኪዳን': {
+                'ዘፍጥረት': 50, 'ዘፀአት': 40, 'ዘሌዋውያን': 27, 'ዘኍልቁ': 36, 'ዘዳግም': 34,
+                'ኢያሱ': 24, 'መሣፍንት': 21, 'ሩት': 4, '1 ሳሙኤል': 31, '2 ሳሙኤል': 24,
+                '1 ነገሥት': 22, '2 ነገሥት': 25, '1 ዜና': 29, '2 ዜና': 36, 'እዝራ': 10,
+                'ነህምያ': 13, 'አስቴር': 10, 'ኢዮብ': 42, 'መዝሙር': 150, 'ምሳሌ': 31,
+                'መክብብ': 12, 'መኃልየ መኃልይ': 8, 'ኢሳይያስ': 66, 'ኤርምያስ': 52,
+                'ሰቆቃው': 5, 'ሕዝቅኤል': 48, 'ዳንኤል': 12, 'ሆሴዕ': 14, 'ኢዩኤል': 3,
+                'አሞጽ': 9, 'አብድዩ': 1, 'ዮናስ': 4, 'ሚክያስ': 7, 'ናሆም': 3, 'ዕንባቆም': 3,
+                'ሶፎንያስ': 3, 'ሐጌ': 2, 'ዘካርያስ': 14, 'ሚልክያስ': 4
+            },
+            'አዲስ ኪዳን': {
+                'ማቴዎስ': 28, 'ማርቆስ': 16, 'ሉቃስ': 24, 'ዮሐንስ': 21, 'ሐዋርያት': 28,
+                'ሮሜ': 16, '1 ቆሮንቶስ': 16, '2 ቆሮንቶስ': 13, 'ገላትያ': 6, 'ኤፌሶን': 6,
+                'ፊልጵስዩስ': 4, 'ቆላስይስ': 4, '1 ተሰሎንቄ': 5, '2 ተሰሎንቄ': 3,
+                '1 ጢሞቴዎስ': 6, '2 ጢሞቴዎስ': 4, 'ቲቶ': 3, 'ፊልሞና': 1, 'ዕብራውያን': 13,
+                'ያዕቆብ': 5, '1 ጴጥሮስ': 5, '2 ጴጥሮስ': 3, '1 ዮሐንስ': 5, '2 ዮሐንስ': 1,
+                '3 ዮሐንስ': 1, 'ይሁዳ': 1, 'ራእይ': 22
+            }
+        };
+
+        // Functions for modal messages
+        function showModal(message, showSpinner = false, showCloseBtn = false) {
+            modalContent.textContent = message;
+            if (showSpinner) {
+                modalSpinner.classList.remove('hidden');
+                modalContent.classList.add('hidden');
+            } else {
+                modalSpinner.classList.add('hidden');
+                modalContent.classList.remove('hidden');
+            }
+            if (showCloseBtn) {
+                modalCloseBtn.classList.remove('hidden');
+            } else {
+                modalCloseBtn.classList.add('hidden');
+            }
+            messageModal.classList.remove('hidden');
+        }
+
+        function hideModal() {
+            messageModal.classList.add('hidden');
+        }
+        
+        // Function to add a message to the chat
+        function addMessageToChat(message, isUser = false, chapterAndVerse = null, isImage = false, imageUrl = null) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('flex', isUser ? 'justify-end' : 'justify-start');
+
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('chat-message', 'rounded-xl', 'p-4', 'shadow-md', 'message-container', 'transition-all', 'duration-300');
+            contentDiv.classList.add(isUser ? 'user' : 'bot');
+
+            if (isImage) {
+                const imgElement = document.createElement('img');
+                imgElement.src = imageUrl;
+                imgElement.classList.add('max-w-full', 'rounded-lg', 'mb-2');
+                contentDiv.appendChild(imgElement);
+            }
+            
+            if (!isUser && chapterAndVerse) {
+                const header = document.createElement('div');
+                header.classList.add('font-bold', 'text-sm', 'text-sky-700', 'mb-2', 'border-b', 'border-sky-300', 'pb-1');
+                header.textContent = `ምእራፍና አንቀጽ: ${chapterAndVerse}`;
+                contentDiv.appendChild(header);
+            }
+            
+            const messageText = document.createElement('p');
+            messageText.textContent = message;
+            contentDiv.appendChild(messageText);
+
+            messageDiv.appendChild(contentDiv);
+            chatContainer.appendChild(messageDiv);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageDiv;
+        }
+
+        function addLoadingIndicator() {
+            loadingMessageElement = document.createElement('div');
+            loadingMessageElement.classList.add('flex', 'justify-start');
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('chat-message', 'rounded-xl', 'p-4', 'shadow-md', 'message-container', 'bg-sky-100');
+            const loadingSpan = document.createElement('span');
+            loadingSpan.classList.add('dots-loading');
+            loadingSpan.textContent = '';
+            contentDiv.appendChild(loadingSpan);
+            loadingMessageElement.appendChild(contentDiv);
+            chatContainer.appendChild(loadingMessageElement);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function removeLoadingIndicator() {
+            if (loadingMessageElement && loadingMessageElement.parentNode) {
+                loadingMessageElement.parentNode.removeChild(loadingMessageElement);
+                loadingMessageElement = null;
+            }
+        }
+
+        // Function to play voice response
+        async function playVoiceResponse(text) {
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+                const payload = {
+                    contents: [{
+                        parts: [{ text: text }]
+                    }],
+                    generationConfig: {
+                        responseModalities: ["AUDIO"],
+                        speechConfig: {
+                            voiceConfig: {
+                                prebuiltVoiceConfig: { voiceName: "Iapetus" }
+                            }
+                        }
+                    },
+                    model: "gemini-2.5-flash-preview-tts"
+                };
+
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                const part = result?.candidates?.[0]?.content?.parts?.[0];
+                const audioData = part?.inlineData?.data;
+                const mimeType = part?.inlineData?.mimeType;
+
+                if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                    const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+                    const pcmData = base64ToArrayBuffer(audioData);
+                    const pcm16 = new Int16Array(pcmData);
+                    const wavBlob = pcmToWav(pcm16, sampleRate);
+                    const audioUrl = URL.createObjectURL(wavBlob);
+                    audioPlayer.src = audioUrl;
+                    audioPlayer.play();
+                } else {
+                    addMessageToChat("የድምጽ መልስ ማመንጨት አልተቻለም።", false);
+                }
+
+            } catch (error) {
+                console.error("Error fetching voice response:", error);
+                addMessageToChat("የድምጽ መልስ በመጠየቅ ላይ ስህተት ተፈጥሯል። እባክዎ እንደገና ይሞክሩ።", false);
+            }
+        }
+        
+        // Base64 string to ArrayBuffer converter
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+        
+        // PCM raw data to WAV Blob converter
+        function pcmToWav(pcmData, sampleRate) {
+            const dataLength = pcmData.length * 2; // 16-bit
+            const buffer = new ArrayBuffer(44 + dataLength);
+            const view = new DataView(buffer);
+            let offset = 0;
+
+            function writeString(str) {
+                for (let i = 0; i < str.length; i++) {
+                    view.setUint8(offset + i, str.charCodeAt(i));
+                }
+                offset += str.length;
+            }
+
+            function writeUint32(uint32) {
+                view.setUint32(offset, uint32, true);
+                offset += 4;
+            }
+
+            function writeUint16(uint16) {
+                view.setUint16(offset, uint16, true);
+                offset += 2;
+            }
+
+            writeString('RIFF'); // ChunkID
+            writeUint32(36 + dataLength); // ChunkSize
+            writeString('WAVE'); // Format
+            writeString('fmt '); // Subchunk1ID
+            writeUint32(16); // Subchunk1Size
+            writeUint16(1); // AudioFormat
+            writeUint16(1); // NumChannels
+            writeUint32(sampleRate); // SampleRate
+            writeUint32(sampleRate * 2); // ByteRate
+            writeUint16(2); // BlockAlign
+            writeUint16(16); // BitsPerSample
+            writeString('data'); // Subchunk2ID
+            writeUint32(dataLength); // Subchunk2Size
+
+            for (let i = 0; i < pcmData.length; i++) {
+                view.setInt16(offset, pcmData[i], true);
+                offset += 2;
+            }
+            return new Blob([view], { type: 'audio/wav' });
+        }
+        
+        // Function to fetch Gemini response
+        async function fetchGeminiResponse(query, imageBase64 = null) {
+            addLoadingIndicator();
+            try {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                const systemPrompt = `እርስዎ የኢትዮጵያ ኦርቶዶክስ ተዋህዶ ቤተክርስቲያን መጽሐፍ ቅዱስን መሰረት አድርጎ ጥያቄዎችን የሚመልስ የኤአይ ረዳት ነዎት። እባክዎ መልስ ከመስጠትዎ በፊት ምዕራፍና አንቀፅን በግልጽ ይግለጹ (ለምሳሌ: ዘፍጥረት 1:1)። የእርስዎ ምላሾች ከመጽሐፍ ቅዱስ ጋር ትክክለኛ እና ተዛማጅ መሆን አለባቸው። መልሶችህን በአማርኛ ብቻ ስጥ።`;
+                
+                const parts = [{ text: query }];
+                if (imageBase64) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: "image/jpeg",
+                            data: imageBase64
+                        }
+                    });
+                }
+
+                const payload = {
+                    contents: [{
+                        parts: parts
+                    }],
+                    systemInstruction: {
+                        parts: [{ text: systemPrompt }]
+                    },
+                };
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                
+                const text = result?.candidates?.[0]?.content?.parts?.[0]?.text || "ይቅርታ፣ ይህንን ጥያቄ መመለስ አልቻልኩም። እባክዎ እንደገና ይሞክሩ።";
+                
+                const chapterAndVerseMatch = text.match(/([^\s\d]+)\s(\d+:\d+)/);
+                const chapterAndVerse = chapterAndVerseMatch ? `${chapterAndVerseMatch[1]} ${chapterAndVerseMatch[2]}` : null;
+                const cleanedText = chapterAndVerseMatch ? text.replace(chapterAndVerseMatch[0], '').trim() : text;
+
+                removeLoadingIndicator();
+                addMessageToChat(cleanedText, false, chapterAndVerse);
+                
+            } catch (error) {
+                console.error("API Error:", error);
+                removeLoadingIndicator();
+                addMessageToChat("ይቅርታ፣ ጥያቄውን በመመለስ ላይ ችግር ተፈጥሯል።", false);
+            }
+        }
+        
+        // Function to populate and show dynamic menu
+        function showDynamicMenu(title, items, isChapters = false, bookName = null) {
+            dynamicMenuTitle.textContent = title;
+            dynamicMenuContent.innerHTML = '';
+            dynamicMenuModal.classList.remove('hidden');
+            dynamicMenuBackBtn.classList.add('hidden');
+
+            if (isChapters) {
+                dynamicMenuBackBtn.classList.remove('hidden');
+            }
+
+            Object.entries(items).forEach(([key, value]) => {
+                const itemBtn = document.createElement('button');
+                itemBtn.classList.add('bg-gray-100', 'hover:bg-gray-200', 'transition-all', 'p-4', 'rounded-xl', 'font-semibold', 'text-gray-800', 'shadow-md', 'flex', 'items-center', 'justify-center');
+                itemBtn.textContent = isChapters ? value : key;
+
+                if (isChapters) {
+                    itemBtn.addEventListener('click', () => {
+                        const query = `${bookName} ምዕራፍ ${value} አንቀጽ 1`;
+                        addMessageToChat(`ምዕራፍ ${value}ን ተመልከት`, true);
+                        fetchGeminiResponse(query);
+                        hideDynamicMenu();
+                    });
+                } else {
+                    itemBtn.addEventListener('click', () => {
+                        showDynamicMenu(key, Array.from({length: value}, (_, i) => i + 1), true, key);
+                    });
+                }
+                dynamicMenuContent.appendChild(itemBtn);
+            });
+        }
+
+        function hideDynamicMenu() {
+            dynamicMenuModal.classList.add('hidden');
+            dynamicMenuContent.innerHTML = '';
+        }
+
+        // Event listeners
+        startChatBtn.addEventListener('click', () => {
+            const name = userNameInput.value.trim();
+            if (name) {
+                userName = name;
+                nameModal.classList.add('hidden');
+                appContainer.classList.remove('hidden');
+                addMessageToChat(`እንኳን ደህና መጡ, ${userName}! ስለ መጽሐፍ ቅዱስ ማንኛውንም ነገር መጠየቅ ይችላሉ።`, false);
+            } else {
+                showModal("እባክዎ ስምዎን ያስገቡ።", false, true);
+            }
+        });
+
+        modalCloseBtn.addEventListener('click', hideModal);
+        dynamicMenuCloseBtn.addEventListener('click', hideDynamicMenu);
+        dynamicMenuBackBtn.addEventListener('click', () => {
+            showDynamicMenu('መጻሕፍት', bibleBooks[dynamicMenuTitle.textContent.includes('አዲስ') ? 'አዲስ ኪዳን' : 'ብሉይ ኪዳን']);
+        });
+
+        sendBtn.addEventListener('click', () => {
+            const query = userInput.value.trim();
+            if (query === "") {
+                showModal("እባክዎ ጥያቄ ያስገቡ።", false, true);
+                return;
+            }
+            addMessageToChat(query, true);
+            userInput.value = "";
+            fetchGeminiResponse(query);
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendBtn.click();
+            }
+        });
+
+        voiceBtn.addEventListener('click', () => {
+            const query = userInput.value.trim();
+            if (query === "") {
+                showModal("እባክዎ ለመናገር የሚፈልጉትን ጽሑፍ ይጻፉ።", false, true);
+                return;
+            }
+            addMessageToChat(query, true);
+            userInput.value = "";
+            
+            fetchGeminiResponse(query).then(text => {
+                if (text) {
+                    playVoiceResponse(text);
+                }
+            });
+        });
+        
+        imageUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const base64 = event.target.result.split(',')[1];
+                    const query = "ይህንን ምስል ተመልከት እና ከመጽሐፍ ቅዱስ ጋር ተዛማጅ የሆነ መልስ ስጠኝ";
+                    addMessageToChat(query, true, null, true, event.target.result);
+                    fetchGeminiResponse(query, base64);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        menuBtn.addEventListener('click', (event) => {
+            event.stopPropagation();
+            menuDropdown.classList.toggle('hidden');
+        });
+
+        oldTestamentBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            menuDropdown.classList.add('hidden');
+            showDynamicMenu('ብሉይ ኪዳን መጻሕፍት', bibleBooks['ብሉይ ኪዳን']);
+        });
+
+        newTestamentBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            menuDropdown.classList.add('hidden');
+            showDynamicMenu('አዲስ ኪዳን መጻሕፍት', bibleBooks['አዲስ ኪዳን']);
+        });
+        
+        document.addEventListener('click', (event) => {
+            if (!menuDropdown.contains(event.target) && !menuBtn.contains(event.target)) {
+                menuDropdown.classList.add('hidden');
+            }
+        });
+        
+    </script>
+</body>
+</html>
